@@ -1,0 +1,108 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: youtube_bot_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-youtube_bot}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - youtube_bot_network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: youtube_bot_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - youtube_bot_network
+    restart: unless-stopped
+
+  fastapi:
+    build: .
+    container_name: youtube_bot_fastapi
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/youtube_bot
+      REDIS_URL: redis://redis:6379
+      DEBUG: "True"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    networks:
+      - youtube_bot_network
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    container_name: youtube_bot_celery_worker
+    command: celery -A app.workers.celery_app worker --loglevel=info -c 4
+    depends_on:
+      - postgres
+      - redis
+      - fastapi
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/youtube_bot
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    networks:
+      - youtube_bot_network
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    container_name: youtube_bot_celery_beat
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    depends_on:
+      - postgres
+      - redis
+      - fastapi
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/youtube_bot
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    networks:
+      - youtube_bot_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  youtube_bot_network:
+    driver: bridge
