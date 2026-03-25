@@ -1,0 +1,58 @@
+# Core Framework
+# fastapi==0.115.0
+fastapi
+uvicorn
+python-multipart
+
+# Database
+SQLAlchemy
+sqlalchemy-orm
+alembic
+psycopg2
+asyncpg
+
+# Caching & Message Queue
+redis
+celery
+
+# YouTube Integration
+google-auth-oauthlib
+google-api-python-client
+yt-dlp
+
+# HTTP & Async
+httpx
+aioredis
+websockets
+python-socketio
+python-engineio
+
+# Security & Authentication
+python-jose
+passlib
+cryptography
+email-validator
+
+# Utilities
+pydantic
+pydantic-settings
+python-dotenv
+requests
+
+# Browser Automation
+playwright
+selenium
+
+# Monitoring & Logging
+prometheus-client
+
+# Testing
+pytest
+pytest-asyncio
+httpx
+pytest-cov
+
+# Development
+black
+flake8
+mypy
